@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\Item;
+use App\Models\Ingredient;
 use Illuminate\Http\Request;
 use App\Notifications\LowStockNotification;
 use Illuminate\Support\Facades\Notification;
@@ -11,21 +12,21 @@ use Illuminate\Support\Facades\Notification;
 class InventoryController extends Controller
 {
     public function index()
-{
-    $this->middleware('role:admin,cashier');
+    {
+        $this->middleware('role:admin,super_admin,cashier');
 
-    $inventory = Inventory::where('branch_id', auth()->user()->branch_id)
-        ->with('item')
-        ->get();
+        $inventory = Inventory::where('branch_id', auth()->user()->branch_id)
+            ->with('item')
+            ->get();
 
-    foreach ($inventory as $item) {
-        if ($item->quantity <= 10) {
-            // auth()->user()->notify(new LowStockNotification($item->item->name, $item->quantity));
+        foreach ($inventory as $item) {
+            if ($item->quantity <= 10) {
+                // auth()->user()->notify(new LowStockNotification($item->item->name, $item->quantity));
+            }
         }
-    }
 
-//     return InventoryResource::collection($inventory);
-// }
+    //     return InventoryResource::collection($inventory);
+    // }
         return response()->json(['inventory' => $inventory]);
     }
 
@@ -81,5 +82,37 @@ class InventoryController extends Controller
         });
 
         return response()->json(['low_stock_alerts' => $alerts]);
+    }
+
+    public function addStock(Request $request, $ingredientId)
+    {
+        $this->middleware('role:admin');
+
+        $data = $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $ingredient = Ingredient::findOrFail($ingredientId);
+
+        $inventory = Inventory::where('ingredient_id', $ingredient->id)
+            ->where('branch_id', auth()->user()->branch_id)
+            ->first();
+
+        if ($inventory) {
+            // إذا كان العنصر موجود في المخزون، أضف الكمية الجديدة
+            $inventory->quantity += $data['quantity'];
+            $inventory->last_updated = now();
+            $inventory->save();
+        } else {
+            // إذا لم يكن موجود، أنشئ سجل جديد
+            $inventory = Inventory::create([
+                'ingredient_id' => $ingredient->id,
+                'branch_id' => auth()->user()->branch_id,
+                'quantity' => $data['quantity'],
+                'last_updated' => now(),
+            ]);
+        }
+
+        return response()->json(['message' => 'تمت إضافة الكمية بنجاح', 'inventory' => $inventory]);
     }
 }

@@ -9,9 +9,45 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 class SupplyRequestController extends Controller
 {
-    public function autoRequest()
+    public function store(Request $request)
     {
         $this->middleware('role:admin');
+
+        $data = $request->validate([
+            'ingredient_id' => 'required|exists:ingredients,id',
+            'quantity' => 'required|numeric|min:0',
+            'supplier_name' => 'required|string|max:255',
+            'supplier_address' => 'required|string|max:255',
+            'supplier_phone' => 'required|string|max:20',
+            'supplier_email' => 'required|email|max:255',
+            'requested_at' => 'required|date',
+            'price' => 'required|numeric|min:0',
+        ]);
+
+        // تحويل الصيغة إذا كانت غير صحيحة
+        $data['requested_at'] = date('Y-m-d', strtotime($data['requested_at']));
+
+        $branchId = auth()->user()->branch_id;
+
+        $supplyRequest = SupplyRequest::create([
+            'ingredient_id' => $data['ingredient_id'],
+            'quantity' => $data['quantity'],
+            'branch_id' => $branchId,
+            'status' => 'pending',
+            'requested_at' => $data['requested_at'],
+            'supplier_name' => $data['supplier_name'],
+            'supplier_address' => $data['supplier_address'],
+            'supplier_phone' => $data['supplier_phone'],
+            'supplier_email' => $data['supplier_email'],
+            'price' => $data['price'],
+        ]);
+
+        return response()->json(['message' => 'Supply request created successfully.', 'data' => $supplyRequest], 201);
+    }
+
+    public function autoRequest()
+    {
+        // $this->middleware('role:admin');
 
         $threshold = 10;
         $minOrderQuantity = 20;
@@ -72,13 +108,24 @@ class SupplyRequestController extends Controller
         // إذا تم التسليم، تحديث المخزون
         if ($data['status'] === 'delivered') {
             $inventory = Inventory::where('branch_id', $supplyRequest->branch_id)
-                ->whereHas('item.ingredients', function ($query) use ($supplyRequest) {
-                    $query->where('ingredient_id', $supplyRequest->ingredient_id);
-                })->first();
+                ->where('ingredient_id', $supplyRequest->ingredient_id)
+                ->first();
 
             if ($inventory) {
                 $inventory->increment('quantity', $supplyRequest->quantity);
+            } else {
+                // إذا لم يوجد سجل، أنشئ واحد جديد
+                Inventory::create([
+                    'branch_id' => $supplyRequest->branch_id,
+                    'ingredient_id' => $supplyRequest->ingredient_id,
+                    'quantity' => $supplyRequest->quantity,
+                    'last_updated' => now(),
+                ]);
             }
+
+            // إذا أردت تحديث item_ingredients بناءً على التوريد (غير شائع)
+            // ItemIngredient::where('ingredient_id', $supplyRequest->ingredient_id)
+            //     ->update(['quantity' => ...]);
         }
 
         return response()->json(['message' => 'Supply request updated', 'request' => $supplyRequest]);

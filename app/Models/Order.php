@@ -32,9 +32,13 @@ class Order extends Model
         return $this->belongsTo(User::class, 'cashier_id');
     }
 
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id');
+    }
     public function items()
     {
-        return $this->hasMany(OrderItem::class);
+        return $this->hasManyThrough(Item::class, OrderItem::class, 'order_id', 'id', 'id');
     }
     public function addons()
     {

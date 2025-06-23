@@ -15,300 +15,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Shift;
 use App\Models\Refund; // أضف هذا السطر لاستيراد الكلاس Refund
 use Illuminate\Support\Facades\Http;
+use App\Services\PaymobService;
+
 class OrderController extends Controller
 {
-    // public function store(Request $request)
-    // {
-    //     $this->middleware('role:admin,cashier');
-
-    //     $data = $request->validate([
-    //         'table_number' => 'nullable|integer',
-    //         'order_type' => 'required|in:takeaway,delivery,dine_in',
-    //         'items' => 'required|array',
-    //         'items.*.item_id' => 'required|exists:items,id',
-    //         'items.*.quantity' => 'required|integer|min:1',
-    //         'addons' => 'nullable|array|max:3',
-    //         'addons.*.ingredient_id' => 'required_with:addons|exists:ingredients,id',
-    //         'addons.*.price' => 'required_with:addons|numeric|min:0',
-    //     ]);
-
-    //     if ($data['order_type'] === 'dine_in' && !isset($data['table_number'])) {
-    //         return response()->json(['message' => trans('orders.table_number_required')], 400);
-    //     }
-
-    //     if ($data['order_type'] !== 'dine_in' && isset($data['table_number'])) {
-    //         return response()->json(['message' => trans('orders.table_number_not_allowed')], 400);
-    //     }
-
-    //     $order = Order::create([
-    //         'branch_id' => auth()->user()->branch_id,
-    //         'order_type' => $data['order_type'],
-    //         'table_number' => $data['table_number'] ?? null,
-    //         'status' => 'pending',
-    //         'employee_id' => auth()->id(),
-    //         'cashier_id' => auth()->id(),
-
-    //     ]);
-
-    //     $totalPrice = 0;
-    //     $activeOffers = Offer::where('branch_id', auth()->user()->branch_id)
-    //         ->where('start_date', '<=', now())
-    //         ->where('end_date', '>=', now())
-    //         ->first();
-
-    //     // دمج العناصر المتكررة
-    //     $itemsGrouped = [];
-    //     foreach ($data['items'] as $itemData) {
-    //         $itemId = $itemData['item_id'];
-    //         if (!isset($itemsGrouped[$itemId])) {
-    //             $itemsGrouped[$itemId] = [
-    //                 'item_id' => $itemId,
-    //                 'quantity' => 0,
-    //             ];
-    //         }
-    //         $itemsGrouped[$itemId]['quantity'] += $itemData['quantity'];
-    //     }
-
-    //     foreach ($itemsGrouped as $itemData) {
-    //         $item = \App\Models\Item::find($itemData['item_id']);
-    //         $subTotal = $item->price * $itemData['quantity'];
-
-    //         if ($activeOffers) {
-    //             $discount = $subTotal * ($activeOffers->discount_percentage / 100);
-    //             $subTotal -= $discount;
-    //         }
-
-    //         $totalPrice += $subTotal;
-
-    //         $inventory = Inventory::where('item_id', $item->id)
-    //             ->where('branch_id', auth()->user()->branch_id)
-    //             ->first();
-    //         if ($inventory && $inventory->quantity >= $itemData['quantity']) {
-    //             $inventory->decrement('quantity', $itemData['quantity']);
-    //         } else {
-    //             $order->delete();
-    //             return response()->json(['message' => trans('orders.insufficient_stock', ['name' => $item->name])], 400);
-    //         }
-
-    //         OrderItem::create([
-    //             'order_id' => $order->id,
-    //             'item_id' => $item->id,
-    //             'quantity' => $itemData['quantity'],
-    //             'price' => $item->price,
-    //         ]);
-    //     }
-    //     if (isset($data['addons'])) {
-    //         foreach ($data['addons'] as $addon) {
-    //             $ingredient = \App\Models\Ingredient::findOrFail($addon['ingredient_id']);
-    //             \App\Models\OrderAddon::create([
-    //                 'order_id' => $order->id,
-    //                 'ingredient_id' => $addon['ingredient_id'],
-    //                 'addon_price' => $addon['price'],
-    //             ]);
-    //             $totalPrice += $addon['price'];
-    //         }
-    //     }
-
-    //     if ($data['order_type'] === 'dine_in') {
-    //         $serviceFee = $totalPrice * 0.10;
-    //         $totalPrice += $serviceFee;
-    //     }
-
-    //     $order->update(['total_price' => $totalPrice]);
-
-    //     $order->load('items', 'addons');
-    //     return response()->json([
-    //         'message' => trans('orders.created'),
-    //         'order' => new \App\Http\Resources\OrderResource($order)
-    //     ], 201);
-    // }
-
-    // public function store(Request $request)
-    // {
-    //     $this->middleware('role:employee,cashier');
-
-    //     $data = $request->validate([
-    //         'table_number' => 'nullable|integer',
-    //         'order_type' => 'required|in:takeaway,delivery,dine_in',
-    //         'customer_location_id' => 'required_if:order_type,delivery|exists:customer_locations,id',
-    //         'items' => 'required|array',
-    //         'items.*.item_id' => 'required|exists:items,id',
-    //         'items.*.quantity' => 'required|integer|min:1',
-    //         'addons' => 'nullable|array',
-    //         'addons.*.ingredient_id' => 'required_with:addons|exists:ingredients,id',
-    //         'addons.*.quantity' => 'required_with:addons|integer|min:1|max:3',
-    //     ]);
-
-    //     if ($data['order_type'] === 'dine_in' && !isset($data['table_number'])) {
-    //         return response()->json(['message' => trans('orders.table_number_required')], 400);
-    //     }
-
-    //     if ($data['order_type'] !== 'dine_in' && isset($data['table_number'])) {
-    //         return response()->json(['message' => trans('orders.table_number_not_allowed')], 400);
-    //     }
-
-    //     $customerLocation = null;
-    //     if (isset($data['customer_location_id'])) {
-    //         $customerLocation = \App\Models\CustomerLocation::findOrFail($data['customer_location_id']);
-    //     }
-
-    //     $branchId = auth()->user()->branch_id;
-    //     if (!$branchId) {
-    //         return response()->json(['message' => 'المستخدم غير مرتبط بفرع'], 400);
-    //     }
-
-    //     $order = Order::create([
-    //         'branch_id' => $branchId,
-    //         'order_type' => $data['order_type'],
-    //         'table_number' => $data['table_number'] ?? null,
-    //         'customer_location_id' => $data['customer_location_id'] ?? null,
-    //         'status' => 'pending',
-    //         'employee_id' => auth()->id(),
-    //     ]);
-
-    //     $totalPrice = 0;
-    //     $deliveryFee = 0;
-    //     $activeOffers = Offer::where('branch_id', $branchId)
-    //         ->where('start_date', '<=', now())
-    //         ->where('end_date', '>=', now())
-    //         ->first();
-
-    //     $itemsGrouped = [];
-    //     foreach ($data['items'] as $itemData) {
-    //         $itemId = $itemData['item_id'];
-    //         if (!isset($itemsGrouped[$itemId])) {
-    //             $itemsGrouped[$itemId] = [
-    //                 'item_id' => $itemId,
-    //                 'quantity' => 0,
-    //             ];
-    //         }
-    //         $itemsGrouped[$itemId]['quantity'] += $itemData['quantity'];
-    //     }
-
-    //     foreach ($itemsGrouped as $itemData) {
-    //         $item = \App\Models\Item::find($itemData['item_id']);
-    //         $subTotal = $item->price * $itemData['quantity'];
-
-    //         if ($activeOffers) {
-    //             $discount = $subTotal * ($activeOffers->discount_percentage / 100);
-    //             $subTotal -= $discount;
-    //         }
-
-    //         $totalPrice += $subTotal;
-
-    //         $inventory = Inventory::where('item_id', $item->id)
-    //             ->where('branch_id', $branchId)
-    //             ->first();
-    //         if ($inventory && $inventory->quantity >= $itemData['quantity']) {
-    //             $inventory->decrement('quantity', $itemData['quantity']);
-    //         } else {
-    //             $order->delete();
-    //             return response()->json(['message' => trans('orders.insufficient_stock', ['name' => $item->name])], 400);
-    //         }
-
-    //         OrderItem::create([
-    //             'order_id' => $order->id,
-    //             'item_id' => $item->id,
-    //             'quantity' => $itemData['quantity'],
-    //             'price' => $item->price,
-    //         ]);
-    //     }
-
-    //     $unavailableAddons = [];
-    //     $groupedAddons = [];
-    //     if (isset($data['addons'])) {
-    //         foreach ($data['addons'] as $addon) {
-    //             $ingredientId = $addon['ingredient_id'];
-    //             if (!isset($groupedAddons[$ingredientId])) {
-    //                 $groupedAddons[$ingredientId] = [
-    //                     'ingredient_id' => $ingredientId,
-    //                     'quantity' => 0,
-    //                 ];
-    //             }
-    //             $groupedAddons[$ingredientId]['quantity'] += $addon['quantity'];
-    //         }
-
-    //         foreach ($groupedAddons as $addon) {
-    //             $ingredient = \App\Models\Ingredient::findOrFail($addon['ingredient_id']);
-    //             $addonPrice = $ingredient->cost_per_unit;
-
-    //             $inventory = \App\Models\Inventory::where('item_id', $item->id)
-    //                 ->where('branch_id', $order->branch_id)
-    //                 ->where('ingredient_id', $ingredient->id)
-    //                 ->first();
-
-    //             if ($inventory && $inventory->quantity >= $addon['quantity']) {
-    //                 $inventory->decrement('quantity', $addon['quantity']);
-
-    //                 \App\Models\OrderAddon::create([
-    //                     'order_id' => $order->id,
-    //                     'ingredient_id' => $addon['ingredient_id'],
-    //                     'addon_price' => $addonPrice,
-    //                     'quantity' => $addon['quantity'],
-    //                 ]);
-
-    //                 $totalPrice += $addonPrice * $addon['quantity'];
-    //             } else {
-    //                 $reason = $inventory ? "الكمية غير كافية، متبقي: {$inventory->quantity}" : "غير موجود في المخزون";
-    //                 $unavailableAddons[] = "{$ingredient->name} ({$reason})";
-    //             }
-    //         }
-    //     }
-
-    //     if ($data['order_type'] === 'delivery') {
-    //         $branch = \App\Models\Branch::findOrFail($order->branch_id);
-    //         $customerLocation = \App\Models\CustomerLocation::findOrFail($data['customer_location_id']);
-
-    //         $earthRadius = 6371;
-    //         $latFrom = deg2rad($branch->latitude);
-    //         $lonFrom = deg2rad($branch->longitude);
-    //         $latTo = deg2rad($customerLocation->latitude);
-    //         $lonTo = deg2rad($customerLocation->longitude);
-
-    //         $latDelta = $latTo - $latFrom;
-    //         $lonDelta = $lonTo - $lonFrom;
-
-    //         $a = sin($latDelta / 2) ** 2 + cos($latFrom) * cos($latTo) * sin($lonDelta / 2) ** 2;
-    //         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-    //         $distance = $earthRadius * $c;
-
-    //         $deliveryFee = $distance * 2;
-    //         $totalPrice += $deliveryFee;
-    //     }
-
-    //     if ($data['order_type'] === 'dine_in') {
-    //         $serviceFee = $totalPrice * 0.10;
-    //         $totalPrice += $serviceFee;
-    //     }
-
-    //     if ($customerLocation) {
-    //         $customer = $customerLocation->customer;
-    //         if ($customer) {
-    //             $pointsEarned = floor($totalPrice / 10);
-    //             \App\Models\LoyaltyPoint::create([
-    //                 'customer_id' => $customer->id,
-    //                 'points' => $pointsEarned,
-    //                 'description' => "نقاط مكتسبة من الطلب رقم {$order->id}",
-    //             ]);
-    //         }
-    //     }
-
-    //     $order->update(['total_price' => $totalPrice]);
-
-    //     $order->load('items', 'addons', 'customerLocation');
-    //     $message = !empty($unavailableAddons)
-    //         ? trans('orders.some_addons_unavailable', ['names' => implode(', ', array_unique($unavailableAddons))])
-    //         : trans('orders.created');
-
-    //     return response()->json([
-    //         'message' => $message,
-    //         'unavailable_addons' => array_unique($unavailableAddons),
-    //         'delivery_fee' => $deliveryFee,
-    //         'order' => new \App\Http\Resources\OrderResource($order)
-    //     ], 201);
-    // }
-
-    public function store(Request $request)
+      public function store(Request $request)
     {
         // $this->middleware('role:employee,cashier,admin');
 
@@ -376,23 +87,16 @@ class OrderController extends Controller
         $orderItems = [];
         foreach ($itemsGrouped as $itemData) {
             $item = \App\Models\Item::find($itemData['item_id']);
-            $subTotal = $item->price * $itemData['quantity'];
-
-            if ($activeOffers) {
-                $discount = $subTotal * ($activeOffers->discount_percentage / 100);
-                $subTotal -= $discount;
+            if (!$item) {
+                continue;
             }
-
-            $totalPrice += $subTotal;
-
             $ingredients = \App\Models\ItemIngredient::where('item_id', $item->id)->get();
-
             foreach ($ingredients as $ingredient) {
                 $totalToDeduct = $ingredient->quantity * $itemData['quantity'];
 
                 $inventory = \App\Models\Inventory::firstOrCreate(
                     [
-                        'item_id' => $itemData['item_id'],
+                        // 'item_id' => $itemData['item_id'],
                         'ingredient_id' => $ingredient->ingredient_id,
                         'branch_id' => $branchId,
                     ],
@@ -411,6 +115,15 @@ class OrderController extends Controller
                 }
             }
 
+            $subTotal = $item->price * $itemData['quantity'];
+
+            if ($activeOffers) {
+                $discount = $subTotal * ($activeOffers->discount_percentage / 100);
+                $subTotal -= $discount;
+            }
+
+            $totalPrice += $subTotal;
+
             $orderItem = OrderItem::create([
                 'order_id' => $order->id,
                 'item_id' => $item->id,
@@ -425,7 +138,7 @@ class OrderController extends Controller
         $groupedAddons = [];
         $hasUnavailableAddons = false;
 
-        if (isset($data['addons'])) {
+        if (isset($data['addons']) && is_array($data['addons'])) {
             foreach ($data['addons'] as $addon) {
                 $ingredientId = $addon['ingredient_id'];
                 if (!isset($groupedAddons[$ingredientId])) {
@@ -579,6 +292,30 @@ class OrderController extends Controller
         $message = !empty($unavailableAddons)
             ? trans('orders.some_addons_unavailable', ['names' => implode(', ', array_unique($unavailableAddons))])
             : trans('orders.created');
+
+        // بعد إنشاء الطلب وحفظ الأصناف المرتبطة به
+        // foreach ($order->orderItems ?? [] as $orderItem) {
+
+        //     foreach ($orderItem->ingredients as $ingredient) {
+        //         // الكمية المطلوبة من هذا المكوّن لهذا الصنف في الطلب
+        //         $requiredQuantity = $ingredient->pivot->quantity * $orderItem->quantity;
+
+        //         // تحديث المخزون
+        //         $inventory = \App\Models\Inventory::where('branch_id', $order->branch_id)
+        //             ->where('ingredient_id', $ingredient->id)
+        //             ->first();
+
+        //         if ($inventory) {
+        //             $inventory->decrement('quantity', $requiredQuantity);
+
+        //             // (اختياري) إرسال تنبيه إذا المخزون أصبح قليل
+        //             if ($inventory->quantity <= 10) {
+        //                 // إرسال إشعار أو بريد إلكتروني
+        //                 // auth()->user()->notify(new \App\Notifications\LowStockNotification($ingredient->name, $inventory->quantity));
+        //             }
+        //         }
+        //     }
+        // }
 
         return response()->json([
             'message' => $message,
@@ -749,76 +486,7 @@ public function update(Request $request, $id)
         'order' => new \App\Http\Resources\OrderResource($order),
     ], 201);
 }
-    // public function makePayment(Request $request)
-    // {
-    //     $data = $request->validate([
-    //         'order_id' => 'required|exists:orders,id',
-    //         'payments' => 'required|array|min:1',
-    //         'payments.*.payment_method' => 'required|in:cash,credit_card,online',
-    //         'payments.*.amount' => 'required|numeric|min:0',
-    //     ]);
 
-    //     $order = Order::find($data['order_id']);
-
-    //     if (!$order) {
-    //         return response()->json(['message' => 'الطلب غير موجود'], 404);
-    //     }
-
-    //     // تحويل total_price إلى float للمقارنة
-    //     $totalPrice = (float) $order->total_price;
-
-    //     // حساب إجمالي المبلغ المدفوع من الدفعات السابقة (إن وجدت)
-    //     $previouslyPaid = $order->payments()->sum('amount');
-    //     $remainingAmount = $totalPrice - $previouslyPaid;
-
-    //     if ($remainingAmount <= 0) {
-    //         return response()->json(['message' => 'الطلب تم دفعه بالكامل مسبقًا'], 400);
-    //     }
-
-    //     // حساب إجمالي المبلغ المدفوع في هذه العملية
-    //     $amountPaidInThisRequest = collect($data['payments'])->sum('amount');
-
-    //     // التحقق مما إذا كان المبلغ المدفوع في هذه العملية يكفي لتغطية المتبقي
-    //     if ($amountPaidInThisRequest < $remainingAmount) {
-    //         $stillRemaining = $remainingAmount - $amountPaidInThisRequest;
-    //         return response()->json([
-    //             'message' => "المبلغ المدفوع أقل من المتبقي. المتبقي: $stillRemaining. الرجاء إكمال الدفع.",
-    //         ], 400);
-    //     }
-
-    //     // إنشاء دفعة منفصلة لكل طريقة دفع
-    //     $createdPayments = [];
-    //     foreach ($data['payments'] as $paymentData) {
-    //         $payment = Payment::create([
-    //             'order_id' => $order->id,
-    //             'cashier_id' => auth()->id(),
-    //             'amount' => $paymentData['amount'],
-    //             'payment_method' => $paymentData['payment_method'],
-    //             'payment_date' => now(),
-    //             'branch_id' => $order->branch_id,
-    //         ]);
-    //         $createdPayments[] = $payment;
-    //     }
-
-    //     // تحديث حالة الطلب إلى "paid" إذا تم دفع المبلغ بالكامل
-    //     $newTotalPaid = $previouslyPaid + $amountPaidInThisRequest;
-    //     if ($newTotalPaid >= $totalPrice) {
-    //         $order->update([
-    //             'payment_status' => 'paid',
-    //             'status' => 'completed', // أو أي حالة مناسبة
-    //         ]);
-    //     } else {
-    //         $order->update([
-    //             'payment_status' => 'partially_paid',
-    //         ]);
-    //     }
-
-    //     return response()->json([
-    //         'message' => 'تم تسجيل الدفع بنجاح',
-    //         'payments' => $createdPayments,
-    //         'order' => new \App\Http\Resources\OrderResource($order),
-    //     ], 201);
-    // }
 
     public function printOrder($id)
     {
@@ -927,4 +595,95 @@ public function update(Request $request, $id)
         'order' => new \App\Http\Resources\OrderResource($order),
     ], 201);
 }
+
+public function initiatePaymobPayment(Request $request)
+{
+    $data = $request->validate([
+        'order_id' => 'required|exists:orders,id',
+        'billing_data' => 'required|array',
+        'billing_data.first_name' => 'required|string',
+        'billing_data.last_name' => 'required|string',
+        'billing_data.email' => 'required|email',
+        'billing_data.phone_number' => 'required|string',
+        'billing_data.apartment' => 'required|string',
+        'billing_data.floor' => 'required|string',
+        'billing_data.street' => 'required|string',
+        'billing_data.building' => 'required|string',
+        'billing_data.city' => 'required|string',
+        'billing_data.state' => 'required|string',
+        'billing_data.country' => 'required|string',
+    ]);
+
+    $order = Order::findOrFail($data['order_id']);
+
+    if ($order->payment_status === 'paid') {
+        return response()->json(['message' => 'Order is already paid'], 400);
+    }
+
+    $paymobService = new PaymobService();
+
+    // Create Paymob order
+    $paymobOrder = $paymobService->createOrder($order->total_price, $order->id);
+    if (!$paymobOrder) {
+        return response()->json(['message' => 'Failed to create payment order'], 500);
+    }
+
+    // Get payment key
+    $paymentKey = $paymobService->getPaymentKey(
+        $paymobOrder['id'],
+        $order->total_price,
+        $data['billing_data']
+    );
+
+    if (!$paymentKey) {
+        return response()->json(['message' => 'Failed to generate payment key'], 500);
+    }
+
+    // Generate iframe URL
+    $iframeUrl = "https://accept.paymob.com/api/acceptance/iframes/{$paymobService->getIframeId()}?payment_token={$paymentKey}";
+
+    return response()->json([
+        'iframe_url' => $iframeUrl,
+        'order_id' => $order->id,
+        'paymob_order_id' => $paymobOrder['id']
+    ]);
+}
+
+public function paymobCallback(Request $request)
+{
+    $data = $request->all();
+
+    // Verify HMAC signature
+    $paymobService = new PaymobService();
+    $calculatedHmac = hash_hmac('sha512', $data['obj']['order']['merchant_order_id'], $paymobService->getHmacSecret());
+
+    if ($calculatedHmac !== $data['hmac']) {
+        return response()->json(['message' => 'Invalid signature'], 400);
+    }
+
+    $order = Order::findOrFail($data['obj']['order']['merchant_order_id']);
+
+    if ($data['obj']['success']) {
+        // Create payment record
+        Payment::create([
+            'order_id' => $order->id,
+            'cashier_id' => auth()->id(),
+            'amount' => $order->total_price,
+            'payment_method' => 'paymob',
+            'payment_date' => now(),
+            'branch_id' => $order->branch_id,
+        ]);
+
+        // Update order status
+        $order->update([
+            'payment_status' => 'paid',
+            'status' => 'completed'
+        ]);
+
+        return response()->json(['message' => 'Payment successful']);
+    }
+
+    return response()->json(['message' => 'Payment failed'], 400);
+}
+
 }

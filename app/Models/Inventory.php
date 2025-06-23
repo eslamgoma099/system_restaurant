@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class Inventory extends Model
 {
     protected $table = 'inventory';
-        protected $fillable = ['item_id', 'quantity', 'branch_id', 'last_updated','ingredient_id'];
+        protected $fillable = [ 'quantity', 'branch_id', 'last_updated','ingredient_id' ];
 
-    public function item()
-    {
-        return $this->belongsTo(Item::class);
-    }
+    // public function item()
+    // {
+    //     return $this->belongsTo(Item::class);
+    // }
 
     public function ingredient()
     {

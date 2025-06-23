@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Item extends Model
 {
-    protected $fillable = ['name', 'category_id', 'price', 'cost', 'stock_quantity', 'branch_id'];
+    protected $fillable = ['name', 'category_id', 'price', 'cost', 'stock_quantity', 'branch_id', 'main_item_id', 'size'];
 
     public function branch()
     {
@@ -31,5 +31,9 @@ public function calculateCost()
     return $this->ingredients->sum(function ($itemIngredient) {
         return $itemIngredient->quantity * $itemIngredient->ingredient->cost_per_unit;
     });
+}
+public function mainItem()
+{
+    return $this->belongsTo(MainItem::class);
 }
 }

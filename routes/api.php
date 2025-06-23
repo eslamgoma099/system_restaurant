@@ -24,6 +24,7 @@ use App\Http\Controllers\AdvanceController;
 use App\Http\Controllers\OfficialHolidayController;
 use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\MainItemController;
 
 
 
@@ -113,18 +114,23 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // إدارة الطلبات
     Route::prefix('orders')->group(function () {
-        Route::post('/', [OrderController::class, 'store'])->middleware('role:employee,admin,cashier'); // الموظف، الكاشير، المدير
-        Route::put('/{id}', [OrderController::class, 'update'])->middleware('role:employee,admin,cashier'); // الموظف، الكاشير، المدير
-        Route::delete('/{id}', [OrderController::class, 'destroy'])->middleware('role:admin'); // مدير الفرع فقط
-        Route::get('/', [OrderController::class, 'index'])->middleware('role:employee,cashier,admin'); // عرض الطلبات
+        Route::post('/', [OrderController::class, 'store'])->middleware('role:employee,super_admin,admin,cashier'); // الموظف، الكاشير، المدير
+        Route::put('/{id}', [OrderController::class, 'update'])->middleware('role:employee,super_admin,admin,cashier'); // الموظف، الكاشير، المدير
+        Route::delete('/{id}', [OrderController::class, 'destroy'])->middleware('role:super_admin,admin'); // مدير الفرع فقط
+        Route::get('/', [OrderController::class, 'index'])->middleware('role:employee,cashier,super_admin,admin'); // عرض الطلبات
         Route::post('/payment', [OrderController::class, 'makePayment'])->middleware('role:cashier,admin'); // الكاشير والمدير فقط
         Route::get('/{id}/print', [OrderController::class, 'printOrder'])->middleware('role:employee,cashier,admin');
         Route::post('/refundPayment', [OrderController::class, 'refundPayment'])->middleware('role:cashier,admin'); // الكاشير والمدير فقط
+        Route::post('/paymob/initiate', [OrderController::class, 'initiatePaymobPayment'])->middleware('role:cashier,admin,super_admin');
+        Route::post('/paymob/callback', [OrderController::class, 'paymobCallback'])->middleware('role:cashier,admin,super_admin');
+
+
     });
 
     // إدارة المخزون
     Route::prefix('inventory')->group(function () {
-        Route::get('/', [InventoryController::class, 'index'])->middleware('role:admin,cashier'); // عرض المخزون
+        Route::post('/{ingredientId}/add-stock', [InventoryController::class, 'addStock'])->middleware('role:admin'); // إضافة المخزون
+        Route::get('/', [InventoryController::class, 'index'])->middleware('role:admin,super_admin,cashier'); // عرض المخزون
         Route::put('/{itemId}', [InventoryController::class, 'updateStock'])->middleware('role:admin'); // تحديث المخزون (المدير فقط)
         Route::get('/low-stock', [InventoryController::class, 'lowStockAlerts'])->middleware('role:admin'); // تنبيهات المخزون (المدير فقط)
     });
@@ -164,11 +170,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [OfferController::class, 'index'])->middleware('role:admin,cashier,employee'); // عرض العروض النشطة
     });
 
+    Route::prefix('main-items')->group(function () {
+        Route::post('/', [MainItemController::class, 'store'])->middleware('role:admin,super_admin'); // إضافة مقدمة
+        Route::get('/', [MainItemController::class, 'index'])->middleware('role:admin,super_admin'); // عرض المقدمات
+        Route::get('/{id}', [MainItemController::class, 'show'])->middleware('role:admin,super_admin'); // عرض تفاصيل المقدمة
+        Route::put('/{id}', [MainItemController::class, 'update'])->middleware('role:admin,super_admin'); // تحديث المقدمة
+        Route::delete('/{id}', [MainItemController::class, 'destroy'])->middleware('role:admin,super_admin'); // حذف المقدمة
+    });
     // إدارة الأصناف
     Route::prefix('items')->group(function () {
+        Route::get('/', [ItemController::class, 'index'])->middleware('role:admin,super_admin,cashier,employee'); // عرض الأصناف
         Route::post('/', [ItemController::class, 'store'])->middleware('role:admin'); // إضافة صنف
         Route::get('/{id}', [ItemController::class, 'show'])->middleware('role:admin,cashier,employee'); // عرض تفاصيل الصنف
-        Route::post('/ingredients', [\App\Http\Controllers\IngredientController::class, 'store']);
+        Route::post('/ingredients', [\App\Http\Controllers\IngredientController::class, 'store'])->middleware('role:admin,super_admin');
     });
 
     // برنامج الولاء
@@ -193,9 +207,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // طلبات التوريد
     Route::prefix('supply-requests')->group(function () {
-        Route::post('/auto', [SupplyRequestController::class, 'autoRequest'])->middleware('role:admin'); // طلب تلقائي
-        Route::get('/', [SupplyRequestController::class, 'index'])->middleware('role:admin'); // عرض الطلبات
-        Route::put('/{id}/status', [SupplyRequestController::class, 'updateStatus'])->middleware('role:admin'); // تحديث حالة الطلب
+        Route::post('/', [SupplyRequestController::class, 'store'])->middleware('role:admin,super_admin'); // إنشاء طلب يدوي
+        Route::post('/auto', [SupplyRequestController::class, 'autoRequest'])->middleware('role:admin,super_admin'); // طلب تلقائي
+        Route::get('/', [SupplyRequestController::class, 'index'])->middleware('role:admin,super_admin'); // عرض الطلبات
+        Route::put('/{id}/status', [SupplyRequestController::class, 'updateStatus'])->middleware('role:admin,super_admin'); // تحديث حالة الطلب
+
     });
 
     // إدارة الرواتب
