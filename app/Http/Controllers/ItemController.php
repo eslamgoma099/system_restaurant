@@ -10,9 +10,14 @@ use App\Models\MainItem;
 
 class ItemController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,super_admin');
+    }
+
     public function store(Request $request)
     {
-        $this->middleware('role:admin');
+        // $this->middleware('role:admin');
 
         $request->mergeIfMissing(['main_item_id' => $request->input('main-item_id')]);
 
@@ -65,7 +70,7 @@ class ItemController extends Controller
 
     public function show($id)
     {
-        $this->middleware('role:admin');
+        // $this->middleware('role:admin');
 
         $item = Item::with('ingredients.ingredient')->findOrFail($id);
         $cost = $item->calculateCost();
@@ -79,7 +84,7 @@ class ItemController extends Controller
 
     public function index()
     {
-        $this->middleware('role:admin,cashier,employee');
+        // $this->middleware('role:admin,cashier,employee');
 
         $items = Item::where('branch_id', auth()->user()->branch_id)
             ->with(['ingredients.ingredient', 'mainItem'])

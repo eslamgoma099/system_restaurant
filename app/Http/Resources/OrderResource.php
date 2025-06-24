@@ -2,6 +2,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\AddonResource;
 
 class OrderResource extends JsonResource
 {
@@ -64,24 +65,15 @@ class OrderResource extends JsonResource
             'status' => $this->status,
             'employee_id' => $this->employee_id,
             'cashier_id' => $this->cashier_id,
+            // 'meal_id' => $this->meal_id,
+            // 'meal_name' => $this->mealName,
+
+            // 'meal' => $this->meal->name,
             'created_at' => $this->created_at->toDateTimeString(),
-            'items' => $this->items->map(function ($orderItem) {
-                return [
-                    'id' => $orderItem->id,
-                    'item_id' => $orderItem->item_id,
-                    'name' => $orderItem->item->name,
-                    'quantity' => $orderItem->quantity,
-                    'price' => $orderItem->price,
-                ];
-            }),
-            'addons' => $this->addons->map(function ($addon) {
-                return [
-                    'id' => $addon->id,
-                    'name' => $addon->ingredient ? $addon->ingredient->name : 'N/A',
-                    'price' => $addon->addon_price,
-                    'quantity'=>$addon->quantity,
-                ];
-            }),
+            'items' => ItemResource::collection($this->items),
+            'addons' => AddonResource::collection($this->addons),
+            // 'meal_name' => optional($this->meal)->name,
+
         ];
     }
 }

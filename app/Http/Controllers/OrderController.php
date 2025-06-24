@@ -24,17 +24,67 @@ class OrderController extends Controller
         // $this->middleware('role:employee,cashier,admin');
 
         $data = $request->validate([
+            'meal_id' => 'nullable|exists:meals,id',
             'table_number' => 'nullable|integer',
             'order_type' => 'required|in:takeaway,delivery,dine_in',
             'customer_location_id' => 'required_if:order_type,delivery|exists:customer_locations,id',
-            'items' => 'required|array',
-            'items.*.item_id' => 'required|exists:items,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items' => 'nullable|array',
+            'items.*.item_id' => 'required_with:items|exists:items,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
             'addons' => 'nullable|array|max:3',
             'addons.*.ingredient_id' => 'required_with:addons|exists:ingredients,id',
             'addons.*.quantity' => 'required_with:addons|integer|min:1|max:3',
             'confirm_addons' => 'nullable|boolean',
         ]);
+
+        if (isset($data['meal_id'])) {
+            $meal = \App\Models\Meal::with(['items'])->findOrFail($data['meal_id']);
+
+            $itemsArray = [];
+            foreach ($meal->items as $mealItem) {
+                $itemId = $mealItem->id;
+                $quantity = $mealItem->pivot->quantity;
+
+                if (isset($itemsArray[$itemId])) {
+                    $itemsArray[$itemId]['quantity'] += $quantity;
+                } else {
+                    $itemsArray[$itemId] = [
+                        'item_id' => $itemId,
+                        'quantity' => $quantity,
+                    ];
+                }
+            }
+// دمج العناصر الجاية من الوجبة مع العناصر المرسلة يدويًا
+$manualItems = $data['items'] ?? [];
+
+foreach ($manualItems as $manualItem) {
+    $itemId = $manualItem['item_id'];
+    $quantity = $manualItem['quantity'];
+
+    if (isset($itemsArray[$itemId])) {
+        $itemsArray[$itemId]['quantity'] += $quantity;
+    } else {
+        $itemsArray[$itemId] = [
+            'item_id' => $itemId,
+            'quantity' => $quantity,
+        ];
+    }
+}
+
+$data['items'] = array_values($itemsArray);
+
+            // إذا أردت تجهيز الإضافات من الوجبة أيضًا:
+            if (method_exists($meal, 'addons')) {
+                $addonsArray = [];
+                foreach ($meal->addons as $addon) {
+                    $addonsArray[] = [
+                        'ingredient_id' => $addon->id,
+                        'quantity' => $addon->pivot->quantity,
+                    ];
+                }
+                $data['addons'] = $addonsArray;
+            }
+        }
 
         if ($data['order_type'] === 'dine_in' && !isset($data['table_number'])) {
             return response()->json(['message' => trans('orders.table_number_required')], 400);
@@ -63,6 +113,8 @@ class OrderController extends Controller
             'payment_status' => 'pending',
             'employee_id' => auth()->id(),
             'cashier_id' => auth()->id(),
+            'meal_id' => $data['meal_id'] ?? null,
+
         ]);
 
         $totalPrice = 0;
@@ -288,7 +340,7 @@ class OrderController extends Controller
 
         $order->update(['total_price' => $totalPrice]);
 
-        $order->load('items', 'addons', 'customerLocation');
+        $order->load('items.item', 'addons.ingredient', 'customerLocation', 'meal');
         $message = !empty($unavailableAddons)
             ? trans('orders.some_addons_unavailable', ['names' => implode(', ', array_unique($unavailableAddons))])
             : trans('orders.created');
@@ -316,12 +368,38 @@ class OrderController extends Controller
         //         }
         //     }
         // }
+        if (isset($data['meal_id'])) {
+            $mealItems = \App\Models\Meal::find($data['meal_id'])?->items;
+            $mealItemsArray = [];
+
+            foreach ($mealItems as $mealItem) {
+                $mealItemsArray[] = [
+                    'item_id' => $mealItem->id,
+                    'item_name' => $mealItem->name,
+                    'quantity' => $mealItem->pivot->quantity,
+                ];
+            }
+        }
+
+        $mealName = null;
+        if (isset($data['meal_id'])) {
+            $meal = \App\Models\Meal::find($data['meal_id']);
+            $mealName = $meal?->name;
+        }
 
         return response()->json([
             'message' => $message,
             'unavailable_addons' => array_unique($unavailableAddons),
             'delivery_fee' => $deliveryFee,
-            'order' => new \App\Http\Resources\OrderResource($order)
+            'order' => new \App\Http\Resources\OrderResource($order),
+            'meal_items' => $mealItemsArray ?? [],
+            'meal_addons' => $mealAddonsArray ?? [],
+            'meal_name' => $mealName,
+
+            // 'items' => $itemsArray ?? [],
+            // 'addons' => $addonsArray ?? [],
+
+
         ], 201);
     }
     public function getCoordinatesFromAddress($address)

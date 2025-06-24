@@ -25,6 +25,8 @@ use App\Http\Controllers\OfficialHolidayController;
 use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\MainItemController;
+use App\Http\Controllers\MealController;
+
 
 
 
@@ -176,6 +178,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [MainItemController::class, 'show'])->middleware('role:admin,super_admin'); // عرض تفاصيل المقدمة
         Route::put('/{id}', [MainItemController::class, 'update'])->middleware('role:admin,super_admin'); // تحديث المقدمة
         Route::delete('/{id}', [MainItemController::class, 'destroy'])->middleware('role:admin,super_admin'); // حذف المقدمة
+    });
+    Route::prefix('meals')->group(function () {
+        Route::post('/', [MealController::class, 'store'])->middleware('role:admin,super_admin'); // إضافة وجبة
+        Route::get('/', [MealController::class, 'index'])->middleware('role:admin,super_admin'); // عرض الوجبات
+        Route::get('/{id}', [MealController::class, 'show'])->middleware('role:admin,super_admin'); // عرض تفاصيل الوجبة
+        Route::put('/{id}', [MealController::class, 'update'])->middleware('role:admin,super_admin'); // تحديث الوجبة
+        Route::delete('/{id}', [MealController::class, 'destroy'])->middleware('role:admin,super_admin'); // حذف الوجبة
     });
     // إدارة الأصناف
     Route::prefix('items')->group(function () {

@@ -36,10 +36,15 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class, 'order_id');
     }
+    // public function items()
+    // {
+    //     return $this->hasManyThrough(Item::class, OrderItem::class, 'order_id', 'id', 'id');
+    // }
     public function items()
-    {
-        return $this->hasManyThrough(Item::class, OrderItem::class, 'order_id', 'id', 'id');
-    }
+{
+    return $this->hasMany(OrderItem::class);
+}
+
     public function addons()
     {
         return $this->hasMany(OrderAddon::class);
@@ -51,6 +56,10 @@ class Order extends Model
     public function refunds()
     {
         return $this->hasMany(Refund::class);
+    }
+    public function meal()
+    {
+        return $this->belongsTo(\App\Models\Meal::class);
     }
 
 }
